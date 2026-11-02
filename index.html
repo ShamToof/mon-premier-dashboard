@@ -3,8 +3,9 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Mon Dashboard</title>
+
   <style>
     body {
       font-family: system-ui, sans-serif;
@@ -14,93 +15,142 @@
       background: #f5f5f5;
       color: #222;
     }
+
     .card {
       background: white;
       padding: 24px;
       border-radius: 16px;
       margin: 16px 0;
     }
+
     button, input {
       padding: 10px;
       border-radius: 8px;
       border: 1px solid #ddd;
+      font: inherit;
     }
-    button { cursor: pointer; background: white; }
+
+    button {
+      cursor: pointer;
+      background: white;
+    }
+
     li { margin: 14px 0; }
-    .done { text-decoration: line-through; color: #777; }
+
+    .done span {
+      text-decoration: line-through;
+      color: #777;
+    }
+
+    #tasks {
+      padding-left: 24px;
+    }
   </style>
 </head>
+
 <body>
   <h1>Mon Dashboard</h1>
   <p>Mon premier projet créé avec ChatGPT</p>
 
   <div class="card">
     <h2>Mes tâches</h2>
-    <p id="count">0 tâche terminée</p>
-    <input id="task" placeholder="Nouvelle tâche">
-    <button id="add">Ajouter</button>
-    <ul id="list"></ul>
+    <p id="counter">0 tâche(s) terminée(s) sur 0</p>
+
+    <form id="taskForm">
+      <input id="taskInput"
+        type="text"
+        placeholder="Nouvelle tâche"
+        required>
+      <button type="submit">Ajouter</button>
+    </form>
+
+    <ul id="tasks"></ul>
   </div>
 
   <script>
-    let tasks = JSON.parse(
-      localStorage.getItem("tasks") || "[]"
-    );
+    const STORAGE_KEY = "mon-dashboard-tasks";
 
-    const list = document.getElementById("list");
-    const count = document.getElementById("count");
+    let tasks = [];
 
-    function render() {
-      list.innerHTML = "";
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      const parsed = saved ? JSON.parse(saved) : [];
+      tasks = Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+      tasks = [];
+    }
 
-      tasks.forEach((task, i) => {
+    const list = document.getElementById("tasks");
+    const counter = document.getElementById("counter");
+    const form = document.getElementById("taskForm");
+    const input = document.getElementById("taskInput");
+
+    function saveTasks() {
+      try {
+        localStorage.setItem(
+          STORAGE_KEY,
+          JSON.stringify(tasks)
+        );
+      } catch (error) {
+        alert("Impossible de sauvegarder les tâches.");
+      }
+    }
+
+    function renderTasks() {
+      list.replaceChildren();
+
+      const completed = tasks.filter(t => t.done).length;
+      counter.textContent =
+        `${completed} tâche(s) terminée(s) sur ${tasks.length}`;
+
+      tasks.forEach((task, index) => {
         const li = document.createElement("li");
-        const cb = document.createElement("input");
-        cb.type = "checkbox";
-        cb.checked = task.done;
+        if (task.done) li.classList.add("done");
 
-        cb.onchange = () => {
-          tasks[i].done = cb.checked;
-          save();
-        };
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.checked = task.done;
+        checkbox.setAttribute(
+          "aria-label", "Tâche terminée"
+        );
+
+        checkbox.addEventListener("change", () => {
+          tasks[index].done = checkbox.checked;
+          saveTasks();
+          renderTasks();
+        });
 
         const span = document.createElement("span");
-        span.textContent = " " + task.name;
-        if (task.done) span.className = "done";
+        span.textContent = task.text;
+        span.style.margin = "0 8px";
 
         const del = document.createElement("button");
-        del.textContent = " Supprimer ";
-        del.onclick = () => {
-          tasks.splice(i, 1);
-          save();
-        };
+        del.textContent = "Supprimer";
 
-        li.append(cb, span, document.createTextNode(" "));
-        li.append(del);
-        list.append(li);
+        del.addEventListener("click", () => {
+          tasks.splice(index, 1);
+          saveTasks();
+          renderTasks();
+        });
+
+        li.append(checkbox, span, del);
+        list.appendChild(li);
       });
-
-      const n = tasks.filter(t => t.done).length;
-      count.textContent =
-        `${n} tâche(s) terminée(s) sur ${tasks.length}`;
     }
 
-    function save() {
-      localStorage.setItem("tasks", JSON.stringify(tasks));
-      render();
-    }
+    form.addEventListener("submit", event => {
+      event.preventDefault();
+      const text = input.value.trim();
+      if (!text) return;
 
-    document.getElementById("add").onclick = () => {
-      const input = document.getElementById("task");
-      const name = input.value.trim();
-      if (!name) return;
-
-      tasks.push({ name, done: false });
+      tasks.push({ text, done: false });
+      saveTasks();
+      renderTasks();
       input.value = "";
-      save();
-    };
+      input.focus();
+    });
 
-    render();
+    renderTasks();
   </script>
 </body>
 </html>
